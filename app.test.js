@@ -1,8 +1,39 @@
 const request = require('supertest');
-const { clearAll, addIngredient, getIngredients } = require('./database/db');
+const { clearAll, addIngredient, getIngredients, dropDb } = require('./database/db');
 const app = require('./app');
 
 const testDb = "myshop-test";
+
+describe.only("Register db", () => {
+
+    afterEach(async (done) => {
+        // dropDb("test-db-test");
+        done();
+    });
+
+    it("Should verify that name already exist", async (done) => {
+        const dbDetail = {
+            dbName: "config"
+        }
+        response = await request(app)
+            .post("/dynamo/register-db")
+            .send(dbDetail)
+            .expect(400);
+        done();
+    });
+
+    it("Should create a new db and return an api key", async (done) => {
+        const dbDetail = {
+            dbName: "test-db-test"
+        }
+        const response = await request(app)
+            .post("/dynamo/register-db")
+            .send(dbDetail)
+            .expect(200);
+        expect(response.body).toHaveProperty('token');
+        done();
+    });
+});
 
 describe("ingredient db test", () => {
     beforeEach(async (done) => {

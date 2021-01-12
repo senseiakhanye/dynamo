@@ -1,5 +1,9 @@
 const express = require('express');
-const { addIngredient, getIngredients, deleteIngredient } = require('./database/db');
+const { addIngredient,
+        getIngredients,
+        deleteIngredient,
+        isDbFree,
+        createDb } = require('./database/db');
 const { ObjectID } = require("mongodb");
 
 
@@ -13,7 +17,27 @@ app.use(function(req, res, next) {
 
 app.use(express.json());
 
-app.get("/ingredients", async(req, res) => {
+app.post("/dynamo/register-db", async(req, res) => {
+    try {
+        if (req.body.dbName == null || req.body.dbName.length < 5) {
+            return res.status(400).send();
+        }
+        const dbFree = await isDbFree(req.body.dbName);
+        if (!dbFree) {
+            return res.status(400).send();
+        }
+        const dbCreation = await createDb(req.body.dbName);        
+        if (dbCreation.ops.length !== 1) {
+            throw new Error("Internal server error");
+        }
+        res.status(200).send({ token: dbCreation.ops[0].token});
+    } catch (error) {
+        console.log(error.message);
+        res.status(500).send();
+    }
+});
+
+app.get("/dynamo/:dbname", async(req, res) => {
     try {
         const ingridientsCursor = await getIngredients("myshop");
         const ingridients = await ingridientsCursor.toArray();
@@ -24,7 +48,7 @@ app.get("/ingredients", async(req, res) => {
     }
 });
 
-app.post("/ingredient", async(req, res) => {
+app.post("/dynamo/:db/:dbname", async(req, res) => {
     try {
         const ingredient = await addIngredient("myshop", req.body);
         if (ingredient != null && ingredient.ops != null && ingredient.ops[0] != null) {
@@ -37,7 +61,7 @@ app.post("/ingredient", async(req, res) => {
     }
 });
 
-app.delete("/ingredient/:id", async(req, res) => {
+app.delete("/dynamo/:db/:dbname/:id", async(req, res) => {
     try {
         if (req.params.id == null || !ObjectID.isValid(req.params.id)) {
             return res.status(400).send();
